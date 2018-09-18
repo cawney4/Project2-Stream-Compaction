@@ -94,10 +94,10 @@ else
 
 ## GPU Work-Efficient Algorithms
 The work efficient algorithm is somewhat similar to naive but with some improvements (maybe? See Performance Analysis below). The algorithm has two steps: Up-Sweep and Down-Sweep. Up-Sweep starts by going to every other element and summing itself with the previous element. It replaces the current element with the sum. Then, it does the same for the new integers. And so on, until there is only one new sum. In a sense, you are building up a tree. The image below, taken from CIS 565 slides, demonstrates this:  
-![](img/work_efficient_up_sweep.png)  
+![](img/work_efficient_up_sweep.PNG)  
 
 The Down-Sweep is more complicated. First, the last element is set to 0. Then, each element passes its value to its left child in the tree. The right child is the sum of the current value and the left child's previous value. This process is repeated as we work down the tree. The image, also taken from CIS 565 slides, illustrates this:  
-![](img/work_efficient_down_sweep.png)  
+![](img/work_efficient_down_sweep.PNG)  
 
 The pseudocode is as follows:  
 ```
