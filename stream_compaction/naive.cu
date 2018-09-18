@@ -13,9 +13,13 @@ namespace StreamCompaction {
             return timer;
         }
         // TODO: __global__
-        // Kernal that does a naive INCLUSIVE scan
+        // Kernel that does a naive INCLUSIVE scan
         __global__ void kernNaiveScan(int n, int levelPower, int *odata, const int *idata) {
             int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+            if (index >= n) {
+                return;
+            }
 
             if (index >= levelPower) {
                 odata[index] = idata[index - levelPower] + idata[index];

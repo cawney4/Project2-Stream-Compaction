@@ -12,7 +12,7 @@ namespace StreamCompaction {
             return timer;
         }
 
-        // Kernal that does a up-sweep
+        // Kernel that does a up-sweep
         __global__ void kernUpSweep(int n, int levelPowerOne, int levelPower,  int *odata) {
             int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
@@ -23,7 +23,7 @@ namespace StreamCompaction {
 
         }
 
-        // Kernal that does a down-sweep
+        // Kernel that does a down-sweep
         __global__ void kernDownSweep(int n, int levelPowerPlusOne, int levelPower, int *odata) {
             int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
@@ -36,9 +36,16 @@ namespace StreamCompaction {
         }
 
         /**
+        * Performs prefix-sum (aka scan) on idata, storing the result into odata.
+        */
+        void scan(int n, int *odata, const int *idata) {
+            scan(n, odata, idata, true);
+        }
+
+        /**
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
-        void scan(int n, int *odata, const int *idata) {
+        void scan(int n, int *odata, const int *idata, const bool time) {
 
             // Initialize blockSize and fullBlocksPerGrid
             int blockSize = 128;
@@ -56,8 +63,9 @@ namespace StreamCompaction {
             // Copy input data into dev_read
             cudaMemcpy(dev_array, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
 
-
-            timer().startGpuTimer();
+            if (time) {
+                timer().startGpuTimer();
+            }
             // TODO
             // Go through the levels for Up Sweep
             for (unsigned int level = 0; level <= totalLevels; level++) {
@@ -92,7 +100,9 @@ namespace StreamCompaction {
             // Copy data from GPU to output array
             cudaMemcpy(odata, dev_array, sizeof(int) * n, cudaMemcpyDeviceToHost);
 
-            timer().endGpuTimer();
+            if (time) {
+                timer().endGpuTimer();
+            }
 
             // Free memory
             cudaFree(dev_array);
@@ -109,10 +119,72 @@ namespace StreamCompaction {
          * @returns      The number of elements remaining after compaction.
          */
         int compact(int n, int *odata, const int *idata) {
+            int blockSize = 128;
+            dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
+
+            // Device arrays
+            int *dev_inData;
+            int *dev_outData;
+            int *dev_bool;
+            int *dev_scan;
+
+            // Allocate device array. 
+            cudaMalloc((void**) &dev_inData, n * sizeof(int));
+            checkCUDAError("cudaMalloc dev_inData failed!");
+
+            cudaMalloc((void**) &dev_outData, n * sizeof(int));
+            checkCUDAError("cudaMalloc dev_outData failed!");
+
+            cudaMalloc((void**) &dev_bool, n * sizeof(int));
+            checkCUDAError("cudaMalloc dev_bool failed!");
+
+            cudaMalloc((void**) &dev_scan, n * sizeof(int));
+            checkCUDAError("cudaMalloc dev_scan failed!");
+
             timer().startGpuTimer();
             // TODO
+            
+            // Map to booleans
+            cudaMemcpy(dev_inData, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
+            Common::kernMapToBoolean << < fullBlocksPerGrid, blockSize >> > (n, dev_bool, dev_inData);
+
+            // Create host arrays that will be passed into scan
+            int *scan_inData = new int[n];
+            int *scan_outData = new int[n];
+            cudaMemcpy(scan_inData, dev_bool, sizeof(int) * n, cudaMemcpyDeviceToHost);
+
+            bool lastOne = scan_inData[n - 1]; // Remember if last bool is a 1. Will be used later.
+
+            // Scan
+            scan(n, scan_outData, scan_inData, false);
+
+            // Use result from scan to find how many elements are compacted
+            int count = scan_outData[n - 1];
+            if (lastOne) {
+                count++;
+            }
+
+            // Copy scan result to device
+            cudaMemcpy(dev_scan, scan_outData, sizeof(int) * n, cudaMemcpyHostToDevice);
+
+            // Perform scatter
+            Common::kernScatter << < fullBlocksPerGrid, blockSize >> > (n, dev_outData,
+                                                                        dev_inData, dev_bool, dev_scan);
+
+            // Copy result to CPU
+            cudaMemcpy(odata, dev_outData, sizeof(int) * n, cudaMemcpyDeviceToHost);
+
             timer().endGpuTimer();
-            return -1;
+
+            // Free memory
+            cudaFree(dev_inData);
+            cudaFree(dev_bool);
+            cudaFree(dev_scan);
+
+            delete scan_inData;
+            delete scan_outData;
+
+            return count;
         }
     }
 }
