@@ -72,8 +72,59 @@ for (i = 0 ... (n - 1))
 ```
 
 ## GPU Naive Algorithms
+The naive algorithm on the GPU has to take advantage of the GPU's parallelism. The algorithm starts by replacing the current element with the sum of the current element and the one before it. Then, the current element is replaced by the sum of it and the integer 2 positions before it. Then, it's the sum of itself and the integer 2^2=4 positions before. Then, itself and 2^3=8 positions before. And so on, until 2^(k) exceeds the size of the array. The image below, from *GPU Gems,* illustrates this method:  
+
+![](img/figure-39-2.jpg)  
+
+Note that this creates an inclusive scan. We need to convert it to an exclusive scan by shifting every element to the right and adding a zero to the beginning.  
+
+The pseudocode for the CPU side is:  
+```
+for (k = 1 ... ilog2(n))  // n is size of input
+    Launch kernel, passing in k
+```
+
+The pseudocode for the device kernel is:  
+```
+if (index >= 2^k)
+    output[index] = input[index - 2^k] + input[index]
+else
+    output[index] = input[index]
+```
 
 ## GPU Work-Efficient Algorithms
+The work efficient algorithm is somewhat similar to naive but with some improvements (maybe? See Performance Analysis below). The algorithm has two steps: Up-Sweep and Down-Sweep. Up-Sweep starts by going to every other element and summing itself with the previous element. It replaces the current element with the sum. Then, it does the same for the new integers. And so on, until there is only one new sum. In a sense, you are building up a tree. The image below, taken from CIS 565 slides, demonstrates this:  
+![](img/work_efficient_up_sweep.png)  
+
+The Down-Sweep is more complicated. First, the last element is set to 0. Then, each element passes its value to its left child in the tree. The right child is the sum of the current value and the left child's previous value. This process is repeated as we work down the tree. The image, also taken from CIS 565 slides, illustrates this:  
+![](img/work_efficient_down_sweep.png)  
+
+The pseudocode is as follows:  
+```
+// Up Sweep
+for k = 0 ... ilogceil(n)  // n is size of input
+    Launch Up Sweep kernel
+    
+Set last element of Up Sweep result to 0
+
+// Down Sweep
+for k = (ilogceil(n) - 1) ... 0
+    Launch Down Sweep kernel
+```
+
+Pseudocode for Up Sweep kernel:  
+```
+if (index % 2^(k+1) == 0)
+    data[index + 2^(k+1) - 1] += data[index + 2^k - 1]
+```
+
+Pseudocode for Down Sweep kernel:
+```
+if (index % 2^(k+1) == 0)
+    temp = data[index + 2^k - 1]
+    data[index + 2^k - 1] = data[index + 2^(k+1) - 1]  // Set left child to current element
+    data[index + 2^(k+1) - 1] += temp  // Set current element to sum of itself and left child
+```
 
 ## GPU Thrust Function 
 
