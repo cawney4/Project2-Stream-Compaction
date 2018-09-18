@@ -72,20 +72,21 @@ namespace StreamCompaction {
             for (unsigned int i = 0; i < n; i++) {
                 scanned[i] = sum;
                 sum += map01[i];
-                }
+            }
 
             unsigned int count = 0;
-            for (unsigned int i = 1; i < n; i++) {
-                if (scanned[i] != scanned[i - 1]) {
-                    odata[scanned[i - 1]] = idata[i - 1];
+            for (unsigned int i = 0; i < n; i++) {
+                //if (scanned[i] != scanned[i - 1]) {
+                if (map01[i] == 1) {
+                    odata[scanned[i]] = idata[i];
                     count++;
                 }
             }
+            
+	        timer().endCpuTimer();
 
             delete map01;
             delete scanned;
-            
-	        timer().endCpuTimer();
 
             return count;
         }
