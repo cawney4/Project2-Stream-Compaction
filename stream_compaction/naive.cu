@@ -29,8 +29,6 @@ namespace StreamCompaction {
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
-            timer().startGpuTimer();
-            // TODO
 
             // Initialize blockSize and fullBlocksPerGrid
             int blockSize = 128;
@@ -42,14 +40,18 @@ namespace StreamCompaction {
             int *dev_read;
 
             // Allocate device arrays
-            cudaMalloc((void**)&dev_write, n * sizeof(int));
+            cudaMalloc((void**) &dev_write, n * sizeof(int));
             checkCUDAError("cudaMalloc dev_write failed!");
 
-            cudaMalloc((void**)&dev_read, n * sizeof(int));
+            cudaMalloc((void**) &dev_read, n * sizeof(int));
             checkCUDAError("cudaMalloc dev_read failed!");
 
             // Copy input data into dev_read
             cudaMemcpy(dev_read, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
+
+
+            timer().startGpuTimer();
+            // TODO     
             
             // Go through the levels of Naive scan
             for (unsigned int level = 1; level <= totalLevels; level++) {
@@ -74,12 +76,13 @@ namespace StreamCompaction {
                 odata[i] = tempArray[i - 1];
             }
             
+            timer().endGpuTimer();
+
             // Free memory
             delete tempArray;
             cudaFree(dev_write);
             cudaFree(dev_read);
 
-            timer().endGpuTimer();
         }
     }
 }
