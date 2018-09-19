@@ -197,6 +197,7 @@ Press any key to continue . . .
 The tables and graphs below show how long each algorithm took (in milliseconds) to scan/compact a given array size. To find the ideal block size, I ran each algorithm using 128, 256, and 512 blocks, and used the fastest time for each. The times are measured using a CPU timer and GPU timer. None of memory allocation is included in the timings. All the arrays in the analysis have sizes that are powers of two. However, the algorithms work on non-power-of-two sizes as well. Once array sizes reach the order of 2^19, cudaMalloc failes. Presumably because there are too many intermediate arrays of large lengths and there is not enough memory.  
 
 __Exclusive Scan Table__  
+
 | Array Size | CPU Scan | Naive Scan (256 blocks) | Work-efficient Scan (128 blocks) | Thrust scan |
 | ------------- | ------------- | ----- | ----- | ----- |
 | 2^4  | 0.0002 | 0.050176 | 0.156672 | 0.050176 |
@@ -207,9 +208,10 @@ __Exclusive Scan Table__
 | 2^18 | 1.1116 | 0.820160 | 1.442270 | 0.589824 |
   
 __Exclusive Scan Graph__  
-![](img/scan_performance.PNG)  
+![](img/scan_performance.png)  
 
 __Stream Compaction Table__  
+
 | Array Size | CPU Compact without scan | CPU Compact with scan | Work-efficient compact (256 blocks) |
 | ----- | ----- | ----- | ----- |
 | 2^4  | 0.0002 | 0.0013 | 0.351232 |
@@ -220,7 +222,7 @@ __Stream Compaction Table__
 | 2^18 | 0.6233 | 2.4728 | 3.639300 | 
   
 __Stream Compaction Graph__  
-![](img/compaction_performance.PNG)  
+![](img/compaction_performance.png)  
 
   
 __Analysis Questions__  
