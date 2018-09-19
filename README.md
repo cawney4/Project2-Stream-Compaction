@@ -11,6 +11,9 @@ CUDA Stream Compaction
 ## Introduction
 This project explores different algorithms for stream compaction and exclusive scan, implemented in parallel with CUDA. We compare their performances to see which one is the best.  
 
+![](img/figure-39-2.jpg)  
+An image from _GPU Gems_, illustrating the naive scan algorithm.  
+
 __Exclusive Scan__  
 Exclusive scan takes an array of integers as input and outputs another array of integers of the same length. Each element of the output is the sum of all previous elements of the input, excluding the current element. (For example, output[i] = sum(input[0] + ... +  input[i - 1]).  
 
@@ -228,9 +231,11 @@ __Stream Compaction Graph__
 __Analysis Questions__  
 
 _Can you find the performance bottlenecks? Is it memory I/O? Computation? Is it different for each implementation?_  
+
 My guess is that memory I/O is a bottleneck for the work efficient methods. This is because of the step between Up Sweep and Down Sweep of scan. I need to copy data from the GPU to the CPU just to set the last element to zero. Then I copy this back to the GPU from the CPU. This memory transfer is extremely slow because it is between hardware. Likewise, stream compaction has extra memory copies between host and device. In fact, it copies data from GPU to CPU in order to pass the data to the CPU scan function, only to have the scan function copy this data back to the GPU before computation begins. This is a very inefficient step. This could be solved by copying the scan code into the compact function. Then, altering the scan code to work directly with the device arrays already in compact.  
 
 For naive, the bottleneck is probably at the end, where I convert the inclusive scan result to exclusive scan. I do this sequentially in the CPU, looping through the entire array, and shifting their values. This would be much more efficient on the GPU.  
 
 _What might be happening inside the Thrust implementation?_  
+
 The first time Thrust runs exclusive scan, it takes a significant amount of time. For example, in the output above, it took 4.34893 ms. But the second time only took 0.048128 ms. Thrust must be instantiating something on the first run that it needs for exclusive scan. Those objects persist in memory throughout the lifetime of the program, so the next calls to thrust::exclusive_scan do not need to instantiate them again and can run faster.
