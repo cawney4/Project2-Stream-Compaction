@@ -127,5 +127,108 @@ if (index % 2^(k+1) == 0)
 ```
 
 ## GPU Thrust Function 
+For performance comparison, I also ran thrust's implementation of exclusive scan.  
+
+## Example Output from the Program  
+Here is an example of what the program outputs to the terminal. This run was done on an array size of 2^8. The tests were given in class, but I copied the Thrust tests to make each of them run twice.    
+```
+****************
+** SCAN TESTS **
+****************
+    [   4   4  39  19  26  38  40  32  19  14   0  28  20 ...   2   0 ]
+==== cpu scan, power-of-two ====
+   elapsed time: 0.0005ms    (std::chrono Measured)
+    [   0   4   8  47  66  92 130 170 202 221 235 235 263 ... 5837 5839 ]
+==== cpu scan, non-power-of-two ====
+   elapsed time: 0.0002ms    (std::chrono Measured)
+    [   0   4   8  47  66  92 130 170 202 221 235 235 263 ... 5785 5792 ]
+    passed
+==== naive scan, power-of-two ====
+   elapsed time: 0.058368ms    (CUDA Measured)
+    passed
+==== naive scan, non-power-of-two ====
+   elapsed time: 0.05632ms    (CUDA Measured)
+    passed
+==== work-efficient scan, power-of-two ====
+   elapsed time: 0.149504ms    (CUDA Measured)
+    passed
+==== work-efficient scan, non-power-of-two ====
+   elapsed time: 0.156672ms    (CUDA Measured)
+    passed
+==== thrust scan, power-of-two ====
+   elapsed time: 4.34893ms    (CUDA Measured)
+    passed
+==== thrust scan, power-of-two ====
+   elapsed time: 0.048128ms    (CUDA Measured)
+    passed
+==== thrust scan, non-power-of-two ====
+   elapsed time: 0.063488ms    (CUDA Measured)
+    passed
+==== thrust scan, non-power-of-two ====
+   elapsed time: 0.053248ms    (CUDA Measured)
+    passed
+
+*****************************
+** STREAM COMPACTION TESTS **
+*****************************
+    [   0   2   3   1   0   0   2   2   3   2   0   2   0 ...   0   0 ]
+==== cpu compact without scan, power-of-two ====
+   elapsed time: 0.0008ms    (std::chrono Measured)
+    [   2   3   1   2   2   3   2   2   2   3   3   1   2 ...   2   1 ]
+    passed
+==== cpu compact without scan, non-power-of-two ====
+   elapsed time: 0.0009ms    (std::chrono Measured)
+    [   2   3   1   2   2   3   2   2   2   3   3   1   2 ...   1   2 ]
+    passed
+==== cpu compact with scan ====
+   elapsed time: 0.0036ms    (std::chrono Measured)
+    [   2   3   1   2   2   3   2   2   2   3   3   1   2 ...   2   1 ]
+    passed
+==== work-efficient compact, power-of-two ====
+   elapsed time: 0.4608ms    (CUDA Measured)
+    passed
+==== work-efficient compact, non-power-of-two ====
+   elapsed time: 0.723968ms    (CUDA Measured)
+    passed
+Press any key to continue . . .
+```  
 
 ## Performance Analysis
+The tables and graphs below show how long each algorithm took (in milliseconds) to scan/compact a given array size. To find the ideal block size, I ran each algorithm using 128, 256, and 512 blocks, and used the fastest time for each. The times are measured using a CPU timer and GPU timer. None of memory allocation is included in the timings. All the arrays in the analysis have sizes that are powers of two. However, the algorithms work on non-power-of-two sizes as well. Once array sizes reach the order of 2^19, cudaMalloc failes. Presumably because there are too many intermediate arrays of large lengths and there is not enough memory.  
+
+__Exclusive Scan Table__  
+| Array Size | CPU Scan | Naive Scan (256 blocks) | Work-efficient Scan (128 blocks) | Thrust scan |
+| ------------- | ------------- | ----- | ----- | ----- |
+| 2^4  | 0.0002 | 0.050176 | 0.156672 | 0.050176 |
+| 2^8  | 0.0006 | 0.057344 | 0.159744 | 0.050176 |
+| 2^10 | 0.0012 | 0.064512 | 0.187392 | 0.066560 |
+| 2^15 | 0.0325 | 0.130912 | 0.309696 | 0.260096 | 
+| 2^17 | 0.0985 | 0.435616 | 0.663552 | 0.339968 |
+| 2^18 | 1.1116 | 0.820160 | 1.442270 | 0.589824 |
+  
+__Exclusive Scan Graph__  
+![](img/scan_performance.PNG)  
+
+__Stream Compaction Table__  
+| Array Size | CPU Compact without scan | CPU Compact with scan | Work-efficient compact (256 blocks) |
+| ----- | ----- | ----- | ----- |
+| 2^4  | 0.0002 | 0.0013 | 0.351232 |
+| 2^8  | 0.0008 | 0.0038 | 0.369664 |
+| 2^10 | 0.0025 | 0.0076 | 0.614400 |
+| 2^15 | 0.0752 | 0.1144 | 0.759808 |
+| 2^17 | 0.3076 | 0.7340 | 2.308100 |
+| 2^18 | 0.6233 | 2.4728 | 3.639300 | 
+  
+__Stream Compaction Graph__  
+![](img/compaction_performance.PNG)  
+
+  
+__Analysis Questions__  
+
+_Can you find the performance bottlenecks? Is it memory I/O? Computation? Is it different for each implementation?_  
+My guess is that memory I/O is a bottleneck for the work efficient methods. This is because of the step between Up Sweep and Down Sweep of scan. I need to copy data from the GPU to the CPU just to set the last element to zero. Then I copy this back to the GPU from the CPU. This memory transfer is extremely slow because it is between hardware. Likewise, stream compaction has extra memory copies between host and device. In fact, it copies data from GPU to CPU in order to pass the data to the CPU scan function, only to have the scan function copy this data back to the GPU before computation begins. This is a very inefficient step. This could be solved by copying the scan code into the compact function. Then, altering the scan code to work directly with the device arrays already in compact.  
+
+For naive, the bottleneck is probably at the end, where I convert the inclusive scan result to exclusive scan. I do this sequentially in the CPU, looping through the entire array, and shifting their values. This would be much more efficient on the GPU.  
+
+_What might be happening inside the Thrust implementation?_  
+The first time Thrust runs exclusive scan, it takes a significant amount of time. For example, in the output above, it took 4.34893 ms. But the second time only took 0.048128 ms. Thrust must be instantiating something on the first run that it needs for exclusive scan. Those objects persist in memory throughout the lifetime of the program, so the next calls to thrust::exclusive_scan do not need to instantiate them again and can run faster.
