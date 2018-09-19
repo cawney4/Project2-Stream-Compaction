@@ -35,7 +35,7 @@ namespace StreamCompaction {
         void scan(int n, int *odata, const int *idata) {
 
             // Initialize blockSize and fullBlocksPerGrid
-            int blockSize = 128;
+            int blockSize = 256;
             dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
 
             // Initialize variables and device arrays

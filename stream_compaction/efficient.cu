@@ -50,7 +50,7 @@ namespace StreamCompaction {
             // Initialize blockSize and fullBlocksPerGrid
             int blockSize = 128;
             dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
-
+            
             // Initialize variables and device arrays
             int totalLevels = ilog2ceil(n);
             int arraySize = pow(2, totalLevels); // To handle non-power of two lengths
@@ -119,7 +119,7 @@ namespace StreamCompaction {
          * @returns      The number of elements remaining after compaction.
          */
         int compact(int n, int *odata, const int *idata) {
-            int blockSize = 128;
+            int blockSize = 256;
             dim3 fullBlocksPerGrid((n + blockSize - 1) / blockSize);
 
             // Device arrays
