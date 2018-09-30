@@ -5,7 +5,7 @@ CUDA Stream Compaction
 
 ## Stream Compaction and Scan Algorithms with CUDA on the GPU
 ### Connie Chang
-  * [LinkedIn](linkedin.com/in/conniechang44), [Demo Reel](vimeo.com/ConChang/DemoReel)
+  * [LinkedIn](https://www.linkedin.com/in/conniechang44), [Demo Reel](https://www.vimeo.com/ConChang/DemoReel)
 * Tested on: Windows 10, Intel Xeon CPU E5-1630 v4 @ 3.70 GHz, GTX 1070 8GB (SIG Lab)
 
 ## Introduction
